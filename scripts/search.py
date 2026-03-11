@@ -124,7 +124,7 @@ def format_product_list(products: List[Product], max_show: int = 20) -> str:
             if extra:
                 lines.append(" · ".join(extra))
 
-        lines.append(f"[查看详情]({p.url}) · `{p.id}`")
+        lines.append(f"`{p.id}`")
         lines.append("")
 
     if len(products) > max_show:
@@ -161,7 +161,7 @@ def search_and_save(query: str, channel: str = "") -> dict:
 
 def _product_to_dict(p: Product) -> dict:
     """将 Product 转为可 JSON 序列化的 dict"""
-    d = {"id": p.id, "title": p.title, "price": p.price}
+    d = {"id": p.id, "title": p.title, "price": p.price, "url": p.url}
     if p.stats:
         d["stats"] = p.stats
     return d

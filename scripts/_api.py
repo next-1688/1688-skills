@@ -161,17 +161,20 @@ def search_products(query: str, channel: str = "") -> List[Product]:
         if not isinstance(data, dict):
             logger.error("搜索失败 - model.data 结构异常（期望 dict）")
             return []
+        _STATS_DROP = {"saleRangeList", "saleQuantityList", "tradePriceList"}
         products = []
         for i, (item_id, item) in enumerate(data.items()):
             if i >= SEARCH_LIMIT:
                 break
+            raw_stats = item.get("stats")
+            stats = {k: v for k, v in raw_stats.items() if k not in _STATS_DROP} if isinstance(raw_stats, dict) else raw_stats
             products.append(Product(
                 id=item_id,
                 title=item.get("title") or "未知商品",
                 price=str(item.get("price") or "-"),
                 image=item.get("image") or "",
                 url=f"https://detail.1688.com/offer/{item_id}.html",
-                stats=item.get("stats"),
+                stats=stats,
             ))
 
         logger.info(f"搜索成功: {query}, 返回 {len(products)} 个商品")
