@@ -133,7 +133,7 @@ def format_product_list(products: List[Product], max_show: int = 20) -> str:
     return "\n".join(lines)
 
 
-def search_and_save(query: str, channel: str = "douyin") -> dict:
+def search_and_save(query: str, channel: str = "") -> dict:
     """
     搜索并保存结果
 
@@ -171,32 +171,35 @@ def main():
     import os
     if not os.environ.get("ALI_1688_AK"):
         print(json.dumps({
-            "data_id": "", "product_count": 0, "products": [],
-            "markdown": "❌ AK 未配置，无法搜索商品。\n\n运行: `cli.py configure YOUR_AK`"
+            "success": False,
+            "markdown": "❌ AK 未配置，无法搜索商品。\n\n运行: `cli.py configure YOUR_AK`",
+            "data": {"data_id": "", "product_count": 0, "products": []},
         }, ensure_ascii=False, indent=2))
         return
 
     parser = argparse.ArgumentParser(description="1688 商品搜索")
     parser.add_argument("--query", "-q", required=True, help="搜索关键词（自然语言描述）")
-    parser.add_argument("--channel", "-c", default="douyin",
-                        choices=["douyin", "taobao", "pinduoduo", "xiaohongshu"],
-                        help="下游渠道 (默认: douyin，taobao 自动映射)")
+    parser.add_argument("--channel", "-c", default="",
+                        choices=["", "douyin", "taobao", "pinduoduo", "xiaohongshu"],
+                        help="下游渠道（可选；未识别渠道意图时留空）")
     args = parser.parse_args()
 
     try:
         result = search_and_save(args.query, args.channel)
         output = {
-            "data_id": result["data_id"],
-            "product_count": len(result["products"]),
-            "products": [_product_to_dict(p) for p in result["products"]],
+            "success": True,
             "markdown": result["markdown"],
+            "data": {
+                "data_id": result["data_id"],
+                "product_count": len(result["products"]),
+                "products": [_product_to_dict(p) for p in result["products"]],
+            },
         }
     except Exception as e:
         output = {
-            "data_id": "",
-            "product_count": 0,
-            "products": [],
+            "success": False,
             "markdown": f"搜索失败（网络异常，已重试3次）：{e}",
+            "data": {"data_id": "", "product_count": 0, "products": []},
         }
     print(json.dumps(output, ensure_ascii=False, indent=2))
 

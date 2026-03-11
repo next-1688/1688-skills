@@ -15,6 +15,7 @@ import json
 import os
 import time
 import logging
+import re
 from typing import Optional, Dict, Any, List
 from dataclasses import dataclass
 from functools import wraps
@@ -23,7 +24,7 @@ import requests
 import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _auth import get_auth_headers
-from _const import CHANNEL_MAP
+from _const import CHANNEL_MAP, SEARCH_LIMIT, PUBLISH_LIMIT
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('1688_api')
@@ -81,8 +82,45 @@ def with_retry(max_retries: int = MAX_RETRIES):
     return decorator
 
 
+def _http_error_message(e: requests.exceptions.HTTPError) -> str:
+    """将常见 HTTP 错误码映射为可读错误信息"""
+    status = e.response.status_code if e.response is not None else None
+    if status == 401:
+        return "签名无效或已过期（401 Unauthorized: Invalid or expired token）"
+    if status == 429:
+        return "请求被限流（429 rateLimit），请稍后重试"
+    if status == 400:
+        return "请求参数不合法（400 Bad Request: parameters invalid）"
+    return f"HTTP错误 {status}" if status else "HTTP错误"
+
+
+def _biz_error_message(result: Dict[str, Any]) -> str:
+    """提取业务失败信息（即使 HTTP 200 也可能失败）"""
+    msg_code = str(result.get("msgCode") or "")
+    msg_info = result.get("msgInfo")
+    code_match = re.search(r"\b(400|401|429|500)\b", msg_code)
+    normalized_code = code_match.group(1) if code_match else ""
+
+    if normalized_code == "401":
+        return "签名无效（401 Unauthorized: Invalid or expired token）"
+    if normalized_code == "429":
+        return "请求被限流（429 Too Many Requests: rateLimit）"
+    if normalized_code == "400":
+        return "请求参数不合法（400 Bad Request: parameters invalid）"
+    if normalized_code == "500":
+        return "服务异常（500），请稍后重试"
+
+    if msg_code and msg_info:
+        return f"{msg_code}: {msg_info}"
+    if msg_info:
+        return str(msg_info)
+    if msg_code:
+        return str(msg_code)
+    return "未知业务错误"
+
+
 @with_retry()
-def search_products(query: str, channel: str = "douyin") -> List[Product]:
+def search_products(query: str, channel: str = "") -> List[Product]:
     """
     搜索商品
 
@@ -107,14 +145,23 @@ def search_products(query: str, channel: str = "douyin") -> List[Product]:
         response = requests.post(url, headers=headers, data=body, timeout=30)
         response.raise_for_status()
         result = response.json()
-
-        if not result.get("success"):
-            logger.error(f"API返回错误: {result.get('error', '未知错误')}")
+        if result.get("success") is False:
+            logger.error(f"搜索失败 - 业务错误: {_biz_error_message(result)}")
             return []
 
-        data = result.get("data", {})
+        model = result.get("model", {})
+        if not isinstance(model, dict):
+            logger.error("搜索失败 - model 结构异常（期望 dict）")
+            return []
+
+        data = model.get("data", {})
+        if not isinstance(data, dict):
+            logger.error("搜索失败 - model.data 结构异常（期望 dict）")
+            return []
         products = []
-        for item_id, item in data.items():
+        for i, (item_id, item) in enumerate(data.items()):
+            if i >= SEARCH_LIMIT:
+                break
             products.append(Product(
                 id=item_id,
                 title=item.get("title") or "未知商品",
@@ -128,7 +175,7 @@ def search_products(query: str, channel: str = "douyin") -> List[Product]:
         return products
 
     except requests.exceptions.HTTPError as e:
-        logger.error(f"搜索失败 - HTTP错误 {e.response.status_code}: {e}")
+        logger.error(f"搜索失败 - {_http_error_message(e)}")
         return []
     except (KeyError, TypeError) as e:
         logger.error(f"搜索失败 - 数据解析错误: {e}")
@@ -150,13 +197,19 @@ def list_bound_shops() -> List[Shop]:
         response = requests.post(url, headers=headers, data=body, timeout=30)
         response.raise_for_status()
         result = response.json()
+        if result.get("success") is False:
+            logger.error(f"查询店铺失败 - 业务错误: {_biz_error_message(result)}")
+            return []
 
-        if isinstance(result, dict) and "data" in result:
-            shops_data = result["data"]
-        elif isinstance(result, list):
-            shops_data = result[0] if len(result) > 0 and isinstance(result[0], list) else result
-        else:
-            shops_data = []
+        model = result.get("model", {})
+        if not isinstance(model, dict):
+            logger.error("查询店铺失败 - model 结构异常（期望 dict）")
+            return []
+
+        shops_data = model.get("data", [])
+        if not isinstance(shops_data, list):
+            logger.error("查询店铺失败 - model.data 结构异常（期望 list）")
+            return []
 
         shops = []
         for s in shops_data:
@@ -165,7 +218,7 @@ def list_bound_shops() -> List[Shop]:
             shops.append(Shop(
                 code=s.get("shopCode", ""),
                 name=s.get("shopName", "未知店铺"),
-                channel=s.get("channelDesc") or s.get("channel", "未知平台"),
+                channel=s.get("channel") or "",
                 is_authorized=not (tool_expired or shop_expired)
             ))
 
@@ -173,7 +226,7 @@ def list_bound_shops() -> List[Shop]:
         return shops
 
     except requests.exceptions.HTTPError as e:
-        logger.error(f"查询店铺失败 - HTTP错误: {e}")
+        logger.error(f"查询店铺失败 - {_http_error_message(e)}")
         return []
     except (KeyError, TypeError, ValueError) as e:
         logger.error(f"查询店铺失败 - 数据解析错误: {e}")
@@ -186,7 +239,7 @@ def publish_items(item_ids: List[str], shop_code: str, channel: Optional[str] = 
     铺货到指定店铺
 
     Args:
-        item_ids:  商品ID列表（最多50个）
+        item_ids:  商品ID列表（最多20个）
         shop_code: 店铺代码
         channel:   下游渠道 API 值（如已知可直接传入，避免重复查询店铺）
 
@@ -203,7 +256,7 @@ def publish_items(item_ids: List[str], shop_code: str, channel: Optional[str] = 
         channel = CHANNEL_MAP.get(target_shop.channel, "douyin")
 
     body = json.dumps({
-        "offerIdList": ",".join(item_ids[:50]),
+        "offerIdList": ",".join(item_ids[:PUBLISH_LIMIT]),
         "channel": channel,
         "shopCode": shop_code
     })
@@ -216,18 +269,32 @@ def publish_items(item_ids: List[str], shop_code: str, channel: Optional[str] = 
         response = requests.post(url, headers=headers, data=body, timeout=60)
         response.raise_for_status()
         result = response.json()
+        if result.get("success") is False:
+            biz_msg = _biz_error_message(result)
+            logger.error(f"铺货失败 - 业务错误: {biz_msg}")
+            return PublishResult(success=False, published_count=0, failed_items=[{"error": biz_msg}])
 
-        success = result.get("success", False) or result.get("code") == 200
+        model = result.get("model", {})
+        if not isinstance(model, dict):
+            logger.error("铺货失败 - model 结构异常（期望 dict）")
+            return PublishResult(success=False, published_count=0, failed_items=[{"error": "返回结构异常：model不是对象"}])
+        success = True
+        model_data = model.get("data", {})
+        parsed_data = model_data if isinstance(model_data, dict) else {}
+
+        success_count = parsed_data.get("successCount")
+        fail_count = parsed_data.get("failCount")
 
         return PublishResult(
             success=success,
-            published_count=len(item_ids) if success else 0,
-            failed_items=[] if success else [{"error": result.get("error", "未知错误")}]
+            published_count=int(success_count) if success_count is not None else (len(item_ids[:PUBLISH_LIMIT]) if success else 0),
+            failed_items=[] if success else [{"error": f"铺货失败（failCount={fail_count if fail_count is not None else '未知'}）"}]
         )
 
     except requests.exceptions.HTTPError as e:
-        logger.error(f"铺货失败 - HTTP错误: {e}")
-        return PublishResult(success=False, published_count=0, failed_items=[{"error": str(e)}])
+        mapped = _http_error_message(e)
+        logger.error(f"铺货失败 - {mapped}")
+        return PublishResult(success=False, published_count=0, failed_items=[{"error": mapped}])
     except (KeyError, TypeError, ValueError) as e:
         logger.error(f"铺货失败 - 数据解析错误: {e}")
         return PublishResult(success=False, published_count=0, failed_items=[{"error": str(e)}])

@@ -9,20 +9,48 @@ python3 {baseDir}/cli.py search --query "商品描述" [--channel 渠道]
 | 参数 | 默认 | 可选值 |
 |------|------|--------|
 | `--query` | 必填 | 自然语言描述，API 自行理解语义 |
-| `--channel` | douyin | douyin / pinduoduo / xiaohongshu / taobao |
+| `--channel` | 空字符串 `""` | douyin / pinduoduo / xiaohongshu / taobao |
+
+返回商品数量限制：默认/最多 20 个。
+当未识别到用户渠道意图时，`channel` 传空字符串 `""`（非必填）。
 
 ## 输出字段
 
+上游 API 响应（最新）：
+
 ```json
 {
-  "data_id": "20260305_143022",
-  "product_count": 18,
-  "products": [{"id": "...", "title": "...", "price": "...", "stats": {...}}],
-  "markdown": "找到 18 个商品：..."
+  "success": true,
+  "model": {
+    "data": {
+      "991122553819": {"title": "...", "price": "...", "image": "...", "stats": {...}},
+      "894138137003": {"title": "...", "price": "...", "image": "..."}
+    }
+  }
 }
 ```
 
-`data_id` 用于后续铺货：`cli.py publish --data-id 20260305_143022`
+上游接口失败时统一看顶层 `success=false`，并读取 `msgCode/msgInfo`：
+- `401`：签名无效
+- `429`：请求限流
+- `400`：参数不合法
+- `500`：服务异常
+
+CLI 标准输出（本 skill 对外）：
+
+```json
+{
+  "success": true,
+  "markdown": "找到 18 个商品：...",
+  "data": {
+    "data_id": "20260305_143022",
+    "product_count": 18,
+    "products": [{"id": "...", "title": "...", "price": "...", "stats": {...}}]
+  }
+}
+```
+
+`data.data_id` 用于后续铺货：`cli.py publish --data-id 20260305_143022`
 
 ## stats 字段说明
 

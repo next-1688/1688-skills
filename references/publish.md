@@ -14,14 +14,36 @@ python3 {baseDir}/cli.py publish --shop-code "260391138" --item-ids "123456,7890
 |------|------|
 | `--shop-code` | 必填，目标店铺代码（从 `cli.py shops` 获取） |
 | `--data-id` | 选品结果 ID（与 `--item-ids` 二选一） |
-| `--item-ids` | 逗号分隔的商品 ID 列表（最多 50 个）|
+| `--item-ids` | 逗号分隔的商品 ID 列表（最多 20 个）|
 
 ## 输出字段
+
+上游 API 响应（最新）：
 
 ```json
 {
   "success": true,
-  "markdown": "## 铺货结果\n\n✅ **成功铺货 12 个商品**..."
+  "model": {
+    "data": {
+      "failCount": 0,
+      "successCount": 1,
+      "allCount": 1
+    }
+  }
+}
+```
+
+失败响应统一看顶层 `success=false`，并读取 `msgCode/msgInfo`（`401/429/400/500`）。
+
+CLI 标准输出（本 skill 对外）：
+
+```json
+{
+  "success": true,
+  "markdown": "## 铺货结果\n\n✅ **成功铺货 12 个商品**...",
+  "data": {
+    "success": true
+  }
 }
 ```
 
@@ -44,6 +66,6 @@ python3 {baseDir}/cli.py publish --shop-code "260391138" --item-ids "123456,7890
 
 ## 限制
 
-- 单次最多 50 个商品
+- 单次最多 20 个商品
 - 店铺必须授权有效
 - API 调用频率受 1688 平台限制

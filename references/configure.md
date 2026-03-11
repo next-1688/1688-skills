@@ -5,8 +5,8 @@ AK（Access Key）是访问 1688 平台的身份凭证，前 32 位是 Secret，
 ## 获取 AK
 
 1. 下载 **1688 AI版 APP**
-2. 登录 → 「我的」→「开发者设置」
-3. 复制 AK（40+ 位字母数字）
+2. 打开 APP 首页，点击「一键部署开店Claw，即刻赚钱🦞」
+3. 进入页面后复制 AK
 
 ## 配置 AK
 
@@ -35,7 +35,8 @@ openclaw gateway restart
 ## 配置写入机制
 
 `configure` 命令优先通过 **Gateway REST API** 写入（安全，不破坏 JSON5 格式）。
-Gateway 不可用时自动 fallback 到直接写 `~/.openclaw/openclaw.json`。
+Gateway 不可用时会尝试 fallback 直写 `~/.openclaw/openclaw.json`（仅当该文件是标准 JSON）。
+若检测到非标准 JSON（例如 JSON5），会拒绝覆盖写入并提示先恢复 Gateway 可用性。
 
 ## 检查配置状态
 

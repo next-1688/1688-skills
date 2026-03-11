@@ -81,27 +81,32 @@ def main():
     import os
     if not os.environ.get("ALI_1688_AK"):
         print(json.dumps({
-            "total": 0, "valid_count": 0, "expired_count": 0, "shops": [],
-            "markdown": "❌ AK 未配置，无法查询店铺。\n\n运行: `cli.py configure YOUR_AK`"
+            "success": False,
+            "markdown": "❌ AK 未配置，无法查询店铺。\n\n运行: `cli.py configure YOUR_AK`",
+            "data": {"total": 0, "valid_count": 0, "expired_count": 0, "shops": []},
         }, ensure_ascii=False, indent=2))
         return
 
     try:
         status = check_shop_status()
         output = {
-            "total": len(status["all"]),
-            "valid_count": len(status["valid"]),
-            "expired_count": len(status["expired"]),
-            "shops": [
-                {"code": s.code, "name": s.name, "channel": s.channel, "is_authorized": s.is_authorized}
-                for s in status["all"]
-            ],
+            "success": True,
             "markdown": status["markdown"],
+            "data": {
+                "total": len(status["all"]),
+                "valid_count": len(status["valid"]),
+                "expired_count": len(status["expired"]),
+                "shops": [
+                    {"code": s.code, "name": s.name, "channel": s.channel, "is_authorized": s.is_authorized}
+                    for s in status["all"]
+                ],
+            },
         }
     except Exception as e:
         output = {
-            "total": 0, "valid_count": 0, "expired_count": 0, "shops": [],
+            "success": False,
             "markdown": f"查询店铺失败（网络异常，已重试3次）：{e}",
+            "data": {"total": 0, "valid_count": 0, "expired_count": 0, "shops": []},
         }
     print(json.dumps(output, ensure_ascii=False, indent=2))
 

@@ -1,5 +1,5 @@
 ---
-name: 1688-skills
+name: 1688-shopkeeper
 description: |
   1688选品铺货专家。用于：(1) 在1688搜索商品/选品找货源 (2) 查询已绑定的下游店铺
   (3) 将商品铺货到抖音/拼多多/小红书/淘宝等平台 (4) 配置1688 AK密钥。
@@ -7,7 +7,7 @@ description: |
 metadata: {"openclaw": {"emoji": "🛒", "requires": {"env": ["ALI_1688_AK"], "bins": ["python3"]}, "primaryEnv": "ALI_1688_AK"}}
 ---
 
-# 1688-skills
+# 1688-shopkeeper
 
 统一入口：`python3 {baseDir}/cli.py <command> [options]`
 
@@ -15,13 +15,13 @@ metadata: {"openclaw": {"emoji": "🛒", "requires": {"env": ["ALI_1688_AK"], "b
 
 | 命令 | 说明 | 示例 |
 |------|------|------|
-| `search` | 文字搜商品 | `cli.py search --query "连衣裙" --channel douyin` |
+| `search` | 搜商品 | `cli.py search --query "连衣裙" --channel douyin` |
 | `shops` | 查绑定店铺 | `cli.py shops` |
 | `publish` | 铺货 | `cli.py publish --shop-code CODE --data-id ID` |
 | `configure` | 配置 AK | `cli.py configure YOUR_AK` |
 | `check` | 检查配置状态 | `cli.py check` |
 
-所有命令输出 JSON：`{"ok": bool, "markdown": str, "data": {...}}`
+所有命令输出 JSON：`{"success": bool, "markdown": str, "data": {...}}`
 **展示时直接输出 `markdown` 字段，Agent 分析追加在后面，不得混入其中。**
 
 ## 标准流程
@@ -32,7 +32,7 @@ metadata: {"openclaw": {"emoji": "🛒", "requires": {"env": ["ALI_1688_AK"], "b
 
 ## AK 引导话术
 
-> "需要先配置 AK。从 **1688 AI版 APP** → 我的 → 开发者设置 获取，然后告诉我：'我的AK是 xxx'"
+> "需要先配置 AK。打开 **1688 AI版 APP** 首页，点击「一键部署开店Claw，即刻赚钱🦞」，进入页面获取 AK，然后告诉我：'我的AK是 xxx'"
 
 ## 开店引导话术
 

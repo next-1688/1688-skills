@@ -140,7 +140,8 @@ def main():
         if not item_ids:
             print(json.dumps({
                 "success": False,
-                "markdown": f"❌ 未找到 data_id=`{args.data_id}` 对应的选品结果，请重新搜索后获取新的 data_id。"
+                "markdown": f"❌ 未找到 data_id=`{args.data_id}` 对应的选品结果，请重新搜索后获取新的 data_id。",
+                "data": {"success": False},
             }, ensure_ascii=False))
             sys.exit(1)
     else:
@@ -151,11 +152,13 @@ def main():
         output = {
             "success": result["success"],
             "markdown": result["markdown"],
+            "data": {"success": result["success"]},
         }
     except Exception as e:
         output = {
             "success": False,
             "markdown": f"铺货失败（网络异常，已重试3次）：{e}",
+            "data": {"success": False},
         }
     print(json.dumps(output, ensure_ascii=False, indent=2))
 

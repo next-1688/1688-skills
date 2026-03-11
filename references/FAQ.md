@@ -17,7 +17,7 @@
 ## 技术 FAQ（AK / 工具使用）
 
 ### Q: AK 是什么？如何获取？
-见 [AK-CONFIG.md](AK-CONFIG.md)
+见 [configure.md](configure.md)
 
 ### Q: AK 配置后还是报错？
 - 检查 AK 是否正确复制（无多余空格）

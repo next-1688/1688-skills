@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Optional
 
 CONFIG_PATH = Path.home() / ".openclaw" / "openclaw.json"
-SKILL_NAME = "1688-skills"
+SKILL_NAME = "1688-shopkeeper"
 
 
 # ── 验证 ─────────────────────────────────────────────────────────────────────
@@ -87,7 +87,8 @@ def configure_via_file(ak: str) -> bool:
                     if content:
                         config = json.loads(content)
             except json.JSONDecodeError as e:
-                print(f"⚠️  配置文件解析失败，将创建新配置: {e}")
+                print(f"❌ 配置文件不是标准 JSON（可能为 JSON5），为避免覆盖现有配置，已停止 fallback 写入: {e}")
+                return False
 
         config.setdefault("skills", {})
         config["skills"].setdefault("entries", {})
@@ -125,12 +126,8 @@ def check_existing_config() -> tuple[bool, str]:
     try:
         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
             config = json.load(f)
-        ak = (config
-              .get("skills", {})
-              .get("entries", {})
-              .get(SKILL_NAME, {})
-              .get("env", {})
-              .get("ALI_1688_AK", ""))
+        entries = config.get("skills", {}).get("entries", {})
+        ak = entries.get(SKILL_NAME, {}).get("env", {}).get("ALI_1688_AK", "")
         return bool(ak), ak
     except Exception:
         return False, ""
@@ -149,7 +146,7 @@ def main():
             md = f"✅ AK 已配置: `{masked}`（来源: {src}）"
         else:
             md = "❌ 尚未配置 AK\n\n运行: `cli.py configure YOUR_AK`"
-        print(json.dumps({"ok": has_existing, "configured": has_existing, "markdown": md},
+        print(json.dumps({"success": has_existing, "markdown": md, "data": {"configured": has_existing}},
                          ensure_ascii=False, indent=2))
         sys.exit(0)
 
@@ -158,13 +155,17 @@ def main():
     # 验证格式
     is_valid, error_msg = validate_ak(ak)
     if not is_valid:
-        print(json.dumps({"ok": False, "markdown": f"❌ {error_msg}"}, ensure_ascii=False))
+        print(json.dumps({"success": False, "markdown": f"❌ {error_msg}", "data": {"configured": False}}, ensure_ascii=False))
         sys.exit(1)
 
     # 写入：Gateway API 优先，fallback 写文件
-    ok = configure_via_gateway(ak) or configure_via_file(ak)
-    if not ok:
-        print(json.dumps({"ok": False, "markdown": "❌ AK 写入失败，请检查权限"}, ensure_ascii=False))
+    write_ok = configure_via_gateway(ak) or configure_via_file(ak)
+    if not write_ok:
+        print(json.dumps({
+            "success": False,
+            "markdown": "❌ AK 写入失败（Gateway 不可用且 fallback 被拒绝/失败），请检查 Gateway 状态或文件权限",
+            "data": {"configured": False},
+        }, ensure_ascii=False))
         sys.exit(1)
 
     md = (
@@ -172,7 +173,7 @@ def main():
         "⚠️ 重启 Gateway 使配置全局生效: `openclaw gateway restart`\n\n"
         f"当前会话立即使用: `ALI_1688_AK={ak[:4]}...{ak[-4:]} python3 cli.py search --query \"XXX\"`"
     )
-    print(json.dumps({"ok": True, "markdown": md}, ensure_ascii=False, indent=2))
+    print(json.dumps({"success": True, "markdown": md, "data": {"configured": True}}, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":

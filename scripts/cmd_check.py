@@ -60,14 +60,16 @@ def check_status() -> dict:
         ok = False
 
     status_icon = "✅ 一切正常" if ok else "⚠️  有问题需处理"
-    markdown = f"## 1688-skills 状态检查\n\n" + "\n".join(f"- {l}" for l in lines) + f"\n\n**{status_icon}**"
+    markdown = f"## 1688-shopkeeper 状态检查\n\n" + "\n".join(f"- {l}" for l in lines) + f"\n\n**{status_icon}**"
 
     return {
-        "ok": ok,
-        "ak_configured": ak_ok,
-        "shops_count": shops_count,
-        "expired_count": expired_count,
+        "success": ok,
         "markdown": markdown,
+        "data": {
+            "ak_configured": ak_ok,
+            "shops_count": shops_count,
+            "expired_count": expired_count,
+        },
     }
 
 

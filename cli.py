@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-1688-skills 统一入口
+1688-shopkeeper 统一入口
 
 Usage:
     python3 cli.py <command> [options]
@@ -12,7 +12,7 @@ Commands:
     configure   配置AK         python3 cli.py configure YOUR_AK
     check       检查配置状态    python3 cli.py check
 
-所有命令输出 JSON: {"ok": bool, "markdown": str, "data": {...}}
+所有命令输出 JSON: {"success": bool, "markdown": str, "data": {...}}
 """
 
 import json
@@ -34,9 +34,10 @@ COMMANDS = {
 
 def _usage():
     print(json.dumps({
-        "ok": False,
+        "success": False,
+        "data": {},
         "markdown": (
-            "**1688-skills 用法**\n\n"
+            "**1688-shopkeeper 用法**\n\n"
             "```\n"
             "python3 cli.py search    --query \"商品描述\" [--channel douyin]\n"
             "python3 cli.py shops\n"

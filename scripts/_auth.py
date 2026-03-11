@@ -2,8 +2,6 @@
 """
 1688 API 认证模块
 
-AK 格式：前32位是 AccessKeySecret，剩余是 AccessKeyID
-签名算法：HMAC-SHA256
 """
 
 import hashlib
@@ -14,6 +12,7 @@ import uuid
 import os
 from typing import Optional, Dict, Tuple
 from urllib.parse import urlparse, parse_qs, quote
+from _const import SKILL_VERSION
 
 
 def extract_ak_keys(raw_input: str) -> Tuple[Optional[str], Optional[str]]:
@@ -26,12 +25,19 @@ def extract_ak_keys(raw_input: str) -> Tuple[Optional[str], Optional[str]]:
     Returns:
         (access_key_id, access_key_secret) 或 (None, None) 如果无效
     """
+    try:
+        decoded = base64.urlsafe_b64decode(raw_input).decode("utf-8")
+        if decoded:
+            raw_input = decoded
+    except Exception:
+        # 当前 AK 规范并不保证一定是 base64，可回退到按长度切分
+        pass
+
     if not raw_input or len(raw_input) < 32:
         return None, None
     
-    # 前32位是 Secret Key
     access_key_secret = raw_input[:32]
-    # 剩余部分是 Access Key ID
+
     access_key_id = raw_input[32:]
     
     return access_key_id, access_key_secret
@@ -118,6 +124,7 @@ def build_signature(
         "x-csk-time": timestamp,
         "x-csk-nonce": nonce,
         "x-csk-content-md5": content_md5,
+        "x-csk-version": SKILL_VERSION,
     }
     
     # C. 生成 CanonicalizedHeaders

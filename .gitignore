@@ -7,9 +7,6 @@ __pycache__/
 *$py.class
 *.so
 
-# 数据目录（用户本地生成）
-data/products/*.json
-
 # 环境变量配置（可能包含敏感信息）
 .env
 .env.local

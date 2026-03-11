@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-1688-skills 全局常量
+1688-shopkeeper 全局常量
 
 所有模块统一从这里 import，禁止各模块自定义同名常量。
 """
@@ -14,6 +14,7 @@ CHANNEL_MAP: dict[str, str] = {
     "douyin":       "douyin",
     "pinduoduo":    "pinduoduo",
     "xiaohongshu":  "xiaohongshu",
+    "thyny":        "thyny",
     "taobao":       "thyny",       # taobao 在 API 侧叫 thyny
 
     # 中文别名（用户自然语言）
@@ -27,10 +28,24 @@ CHANNEL_MAP: dict[str, str] = {
 # 默认渠道
 DEFAULT_CHANNEL = "douyin"
 
+# Skill 版本
+SKILL_VERSION = "1.0.0"
+
+# 接口返回/提交数量限制（按最新接口文档）
+SEARCH_LIMIT = 20
+PUBLISH_LIMIT = 20
+
 # ── 数据目录（与 skill 代码解耦）──────────────────────────────────────────────
 import os
-DATA_DIR = os.path.join(
-    os.path.expanduser("~/.openclaw/workspace-clawshop"),
-    "1688-skill-data",
-    "products",
+
+# 优先级：
+# 1) 显式环境变量 OPENCLAW_WORKSPACE_DIR（推荐）
+# 2) 历史路径（兼容老版本）
+# 3) 通用默认路径（与具体 workspace 名称解耦）
+_LEGACY_WORKSPACE = os.path.expanduser("~/.openclaw/workspace-clawshop")
+_DEFAULT_WORKSPACE = os.path.expanduser("~/.openclaw/workspace")
+WORKSPACE_DIR = os.environ.get("OPENCLAW_WORKSPACE_DIR") or (
+    _LEGACY_WORKSPACE if os.path.isdir(_LEGACY_WORKSPACE) else _DEFAULT_WORKSPACE
 )
+
+DATA_DIR = os.path.join(WORKSPACE_DIR, "1688-skill-data", "products")
