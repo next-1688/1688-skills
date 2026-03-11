@@ -1,47 +1,78 @@
-# 铺货详细说明
+# 铺货指南
 
-## CLI 调用
+## 前置：查询店铺
+
+铺货前必须先获取目标店铺的 `shop_code`：
 
 ```bash
-# 方式一：用选品 data_id（推荐）
-python3 {baseDir}/cli.py publish --shop-code "260391138" --data-id "20260305_143022"
-
-# 方式二：直接指定商品 ID
-python3 {baseDir}/cli.py publish --shop-code "260391138" --item-ids "123456,789012"
+python3 {baseDir}/cli.py shops
 ```
 
-| 参数 | 说明 |
-|------|------|
-| `--shop-code` | 必填，目标店铺代码（从 `cli.py shops` 获取） |
-| `--data-id` | 本地选品快照 ID（与 `--item-ids` 二选一，非平台全局ID） |
-| `--item-ids` | 逗号分隔的商品 ID 列表（最多 20 个）|
-| `--dry-run` | 可选，仅预检查不执行实际铺货 |
-
-## 输出字段
-
-上游 API 响应（最新）：
+CLI 输出：
 
 ```json
 {
   "success": true,
-  "model": {
-    "data": {
-      "failCount": 0,
-      "successCount": 1,
-      "allCount": 1
-    }
+  "markdown": "你共绑定了 **2** 个店铺：\n\n| # | 店铺 | 平台 | 状态 | 店铺代码 |\n...",
+  "data": {
+    "total": 2,
+    "valid_count": 1,
+    "expired_count": 1,
+    "shops": [
+      {"code": "260391138", "name": "我的抖店", "channel": "douyin", "is_authorized": true},
+      {"code": "123456789", "name": "拼多多小店", "channel": "pinduoduo", "is_authorized": false}
+    ]
   }
 }
 ```
 
-失败响应统一看顶层 `success=false`，并读取 `msgCode/msgInfo`（`401/429/400/500`）。
+### 店铺选择规则
 
-CLI 标准输出（本 skill 对外）：
+| 场景 | Agent 操作 |
+|------|-----------|
+| 仅 1 个有效店铺 | 自动选择，无需询问用户 |
+| 多个有效店铺 | 列出店铺表格，让用户选择 |
+| 0 个店铺 | 输出开店引导话术（见 SKILL.md） |
+| 有店铺但全部 `is_authorized: false` | 提示"店铺授权已过期，请在 [1688 AI版APP](https://air.1688.com/kapp/1688-ai-app/pages/home?from=1688-shopkeeper) 中重新授权" |
+
+## CLI 调用
+
+```bash
+# 方式一：用选品 data_id 铺全部（整批）
+python3 {baseDir}/cli.py publish --shop-code "260391138" --data-id "20260305_143022"
+
+# 方式二：指定商品 ID（用户筛选后）
+python3 {baseDir}/cli.py publish --shop-code "260391138" --item-ids "991122553819,894138137003"
+
+# 加 --dry-run 仅预检查不执行
+python3 {baseDir}/cli.py publish --shop-code "260391138" --data-id "20260305_143022" --dry-run
+```
+
+| 参数 | 说明 |
+|------|------|
+| `--shop-code` | 必填，目标店铺代码（从 `cli.py shops` 的 `data.shops[].code` 获取） |
+| `--data-id` | 选品快照 ID（与 `--item-ids` 二选一），铺该批次全部商品 |
+| `--item-ids` | 逗号分隔的商品 ID（与 `--data-id` 二选一，最多 20 个） |
+| `--dry-run` | 可选，仅预检查不执行实际铺货 |
+
+### data-id 与 item-ids 怎么选
+
+| 用户意图 | Agent 操作 |
+|---------|-----------|
+| "全部铺货" / "铺这批" | 用 `--data-id`（铺整批） |
+| "铺第 1、3 个" / "铺 xxx 这个" | 从 search 输出的 `data.products[]` 中按序号或 ID 提取，用 `--item-ids` |
+| 直接给了商品 ID | 用 `--item-ids` |
+| 没有商品来源 | 先执行 `search` |
+| 两者都传 | CLI 拒绝执行（参数互斥） |
+
+## 输出结构
+
+### 正常铺货输出
 
 ```json
 {
   "success": true,
-  "markdown": "## 铺货结果\n\n✅ **成功铺货 12 个商品**...",
+  "markdown": "## 铺货结果\n\n**目标店铺**: 我的抖店\n\n✅ **成功铺货 12 个商品**\n...",
   "data": {
     "success": true,
     "origin_count": 28,
@@ -53,37 +84,77 @@ CLI 标准输出（本 skill 对外）：
 }
 ```
 
-## data_id / item-ids 决策规则
+| data 字段 | 含义 |
+|-----------|------|
+| `origin_count` | 来源商品总数（data_id 或 item-ids 解析后） |
+| `submitted_count` | 实际提交数（最多 20，受接口限制） |
+| `success_count` | 铺货成功数 |
+| `fail_count` | 铺货失败数 |
+| `dry_run` | 是否为预检查模式 |
 
-- `data_id` = 历史选品结果的本地快照ID
-- `item-ids` = 实际铺货要提交的商品ID列表
-- Agent 可以：
-  - 用 `data_id` 读取本地快照，再提取 `item-ids`
-  - 直接按用户指定ID构造 `item-ids`
-- 两者都没有：先执行 `search`
-- 两者都传：CLI 拒绝执行（参数互斥）
+### dry-run 预检查输出
 
-## 铺货流程规范（Agent 执行）
+```json
+{
+  "success": true,
+  "markdown": "## 铺货预检查结果\n\n✅ 店铺校验通过：我的抖店\n- 来源商品数：28\n- 实际将提交：20\n- ⚠️ 超出接口限制，仅会提交前 20 个\n\n确认后去掉 `--dry-run` 执行正式铺货。",
+  "data": {
+    "success": true,
+    "origin_count": 28,
+    "submitted_count": 20,
+    "success_count": 0,
+    "fail_count": 0,
+    "dry_run": true
+  }
+}
+```
+
+## 铺货流程（Agent 执行步骤）
 
 ```
-1. 确认商品来源（data_id 或 item-ids）
-2. 运行 cli.py shops 获取 shop_code
-   └─ 单店铺 → 自动选
-   └─ 多店铺 → 列出让用户选择
-   └─ 授权过期 → 提示在 1688 AI版 APP 重新授权
-3. 铺货前向用户确认：
+1. 确认商品来源
+   └─ 有 data_id → 用 --data-id
+   └─ 用户指定了具体商品 → 提取 ID，用 --item-ids
+   └─ 都没有 → 先执行 search
+
+2. 获取店铺
+   └─ 运行 cli.py shops
+   └─ 按"店铺选择规则"确定 shop_code
+
+3. 向用户确认
    "确认铺货信息：
-   - 商品：X个
-   - 目标店铺：[平台]店铺名
+   - 商品：X 个
+   - 目标店铺：[平台] 店铺名
    确认执行吗？"
-4. 若用户希望先看影响范围：先执行 `--dry-run` 预检查
-5. 执行正式铺货
-6. 展示结果：原样输出 markdown，根据 success 引导下一步
+
+4. 执行铺货（或 dry-run 预检查）
+
+5. 展示结果：原样输出 markdown，然后根据结果引导下一步（见下方）
 ```
+
+## 结果处理与下一步引导
+
+| 结果 | Agent 应对 |
+|------|-----------|
+| 全部成功 | 恭喜用户，提示"登录对应平台后台查看已发布商品" |
+| 部分成功（有 fail_count） | 说明成功/失败数，建议"稍后重试失败的商品，或检查商品信息是否完整" |
+| 全部失败 | 展示失败原因（markdown 中有），按错误码引导（见下方错误处理） |
+| dry-run 预检查 | 展示预检结果，问用户"确认执行正式铺货吗？"，确认后去掉 `--dry-run` 重新执行 |
+| 店铺不存在 | 提示运行 `shops` 重新获取正确的店铺代码 |
+| 店铺授权过期 | 提示在 1688 AI版 APP 中重新授权 |
 
 ## 限制
 
 - 单次最多 20 个商品
-- 超出 20 个时仅提交前 20 个，并在结果中明确提示
+- 超出 20 个时仅提交前 20 个，结果中会明确提示
 - 店铺必须授权有效
 - API 调用频率受 1688 平台限制
+
+## 异常处理
+
+| 场景 | 表现 | Agent 应对 |
+|------|------|-----------|
+| API 失败 | `success: false` + 错误描述 | `400` 检查参数；`401` 引导重新配置 AK；`429` 建议稍后重试；`500` 服务异常，稍后重试 |
+| data_id 找不到 | `"未找到 data_id=... 对应的选品结果"` | 提示用户重新搜索获取新的 data_id |
+| 商品 ID 为空 | `"没有可用的商品ID"` | 检查 --item-ids 或 --data-id 是否正确 |
+| 网络异常 | `"铺货失败（网络异常，已重试3次）"` | 建议检查网络后重试 |

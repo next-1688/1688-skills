@@ -26,8 +26,13 @@ metadata: {"openclaw": {"emoji": "🛒", "requires": {"env": ["ALI_1688_AK"], "b
 
 ## 标准流程
 
-**选品→铺货**：`check` → `search` →  用户筛选(Agent 推荐 + 用户确认) → `shops` → `publish`
-**首次使用**：`check`（无 AK → `configure`；无店铺 → 引导开店）
+**选品→铺货**：`check` → `search` → 用户筛选(Agent 推荐 + 用户确认) → `shops` → `publish`
+**首次使用**：`check` → 按 data 字段分支：
+- `ak_configured: false` → 先 `configure`（优先级最高，其他命令都依赖 AK）
+- `shops_count: 0` → 引导开店
+- `expired_count > 0` → 提示重新授权
+- 全部正常 → 进入选品流程
+
 **刚配置 AK**：当前会话命令前加 `ALI_1688_AK=xxx`，重启 Gateway 后全局生效
 
 ## 执行前置（必须）
@@ -58,8 +63,3 @@ metadata: {"openclaw": {"emoji": "🛒", "requires": {"env": ["ALI_1688_AK"], "b
 | 新店破零、服务分、推广 | `references/faq/new-store.md` |
 | 素材审核、白底图、标题优化 | `references/faq/content-compliance.md` |
 
-## 详细文档
-
-- 选品参数 + stats 字段 + 分析模板 → `cat {baseDir}/references/search.md`
-- 铺货流程 + 限制 → `cat {baseDir}/references/publish.md`
-- AK 配置机制 → `cat {baseDir}/references/configure.md`
