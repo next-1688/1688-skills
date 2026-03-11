@@ -29,7 +29,7 @@ from _const import CHANNEL_MAP, SEARCH_LIMIT, PUBLISH_LIMIT
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('1688_api')
 
-BASE_URL = "https://ainextpre.1688.com"
+BASE_URL = "https://ainext.1688.com"
 MAX_RETRIES = 3
 RETRY_DELAY_BASE = 1
 
@@ -263,7 +263,16 @@ def publish_items(item_ids: List[str], shop_code: str, channel: Optional[str] = 
                 fail_count=0,
                 all_count=0,
             )
-        channel = CHANNEL_MAP.get(target_shop.channel, "douyin")
+        channel = CHANNEL_MAP.get(target_shop.channel)
+        if not channel:
+            return PublishResult(
+                success=False,
+                published_count=0,
+                failed_items=[{"error": f"未知渠道: {target_shop.channel}"}],
+                submitted_count=0,
+                fail_count=0,
+                all_count=0,
+            )
 
     submitted_count = len(item_ids[:PUBLISH_LIMIT])
     body = json.dumps({

@@ -57,78 +57,38 @@ def save_search_result(products: List[Product], query: str, channel: str) -> str
     return data_id
 
 
-def format_product_list(products: List[Product], max_show: int = 20) -> str:
-    """
-    格式化商品列表为 Markdown（含关键 stats 指标）
+def _fmt_rate(v):
+    """小数转百分比，如 0.857 → 85.7%；无值返回 -"""
+    if v is None:
+        return "-"
+    try:
+        f = float(v)
+        return f"{f * 100:.1f}%" if f <= 1.0 else f"{f:.1f}%"
+    except (TypeError, ValueError):
+        return str(v)
 
-    Args:
-        products: 商品列表
-        max_show: markdown 中最多展示的商品数（完整数据始终在 JSON products 字段中）
-    """
+
+def format_product_list(products: List[Product], max_show: int = 20) -> str:
+    """格式化商品列表为 Markdown 表格"""
     if not products:
         return "未找到符合条件的商品。"
 
     lines = [f"找到 **{len(products)}** 个商品：\n"]
+    lines.append("| # | 商品 | 价格 | 30天销量 | 好评率 | 复购率 | 铺货数 | 揽收率 |")
+    lines.append("| --- | --- | --- | --- | --- | --- | --- | --- |")
 
     for i, p in enumerate(products[:max_show], 1):
-        lines.append(f"---")
-        lines.append(f"**{i}. [{p.title}]({p.url})**")
-        if p.image:
-            lines.append(f"![商品图]({p.image})")
-        lines.append(f"💰 **¥{p.price}**")
-
         s = p.stats or {}
-        if s:
-            def fmt_rate(v):
-                """小数转百分比，如 0.857 → 85.7%"""
-                if v is None:
-                    return None
-                try:
-                    f = float(v)
-                    return f"{f * 100:.1f}%" if f <= 1.0 else f"{f:.1f}%"
-                except (TypeError, ValueError):
-                    return str(v)
-
-            # 核心指标表格
-            rows = []
-            if s.get("last30DaysSales") is not None:
-                rows.append(("30天销量", str(s["last30DaysSales"])))
-            if s.get("goodRates") is not None:
-                rows.append(("好评率", fmt_rate(s["goodRates"])))
-            if s.get("repurchaseRate") is not None:
-                rows.append(("复购率", fmt_rate(s["repurchaseRate"])))
-            if s.get("downstreamOffer") is not None:
-                rows.append(("铺货数", str(s["downstreamOffer"])))
-
-            if rows:
-                lines.append("")
-                lines.append("| " + " | ".join(r[0] for r in rows) + " |")
-                lines.append("| " + " | ".join("---" for _ in rows) + " |")
-                lines.append("| " + " | ".join(r[1] for r in rows) + " |")
-                lines.append("")
-
-            # 补充指标（单行紧凑展示）
-            extra = []
-            if s.get("totalSales") is not None:
-                extra.append(f"累计销量 {s['totalSales']}")
-            cr = s.get("collectionRate24h")
-            if cr is not None:
-                cr_fmt = fmt_rate(cr)
-                if cr_fmt:
-                    extra.append(f"揽收率 {cr_fmt}")
-            if s.get("remarkCnt") is not None:
-                extra.append(f"{s['remarkCnt']}条评价")
-            cat = s.get("categoryListName") or s.get("categoryName") or ""
-            if cat:
-                extra.append(cat)
-            if extra:
-                lines.append(" · ".join(extra))
-
-        lines.append(f"`{p.id}`")
-        lines.append("")
+        sales = s.get("last30DaysSales", "-") if s.get("last30DaysSales") is not None else "-"
+        good = _fmt_rate(s.get("goodRates"))
+        repurchase = _fmt_rate(s.get("repurchaseRate"))
+        downstream = s.get("downstreamOffer", "-") if s.get("downstreamOffer") is not None else "-"
+        collection = _fmt_rate(s.get("collectionRate24h"))
+        title = p.title.replace("|", "\\|")
+        lines.append(f"| {i} | [{title}]({p.url}) | ¥{p.price} | {sales} | {good} | {repurchase} | {downstream} | {collection} |")
 
     if len(products) > max_show:
-        lines.append(f"*... 还有 {len(products) - max_show} 个商品，完整数据见 JSON 输出*")
+        lines.append(f"\n*... 还有 {len(products) - max_show} 个商品，完整数据见 JSON 输出*")
 
     return "\n".join(lines)
 

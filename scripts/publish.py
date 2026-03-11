@@ -156,7 +156,14 @@ def publish_with_check(item_ids: List[str], shop_code: str, dry_run: bool = Fals
             "origin_count": origin_count,
         }
 
-    channel = CHANNEL_MAP.get(target_shop.channel, "douyin")
+    channel = CHANNEL_MAP.get(target_shop.channel)
+    if not channel:
+        return {
+            "success": False,
+            "markdown": f"❌ 店铺「{target_shop.name}」的渠道「{target_shop.channel}」无法识别，请联系客服确认。",
+            "result": PublishResult(success=False, published_count=0, failed_items=[{"error": f"未知渠道: {target_shop.channel}"}]),
+            "origin_count": origin_count,
+        }
     result = publish_items(item_ids, shop_code, channel=channel)
     markdown = format_publish_result(result, target_shop.name, origin_count=origin_count)
     
