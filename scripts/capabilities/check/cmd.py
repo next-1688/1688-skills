@@ -19,7 +19,7 @@ def check_status() -> dict:
     lines = []
     ok = True
 
-    # 1. AK（环境变量 → session 文件 fallback）
+    # 1. AK（由 OpenClaw 注入到环境变量）
     ak_id, _ = get_ak_from_env()
     if ak_id:
         masked = f"{ak_id[:4]}****{ak_id[-4:]}" if len(ak_id) >= 8 else "****"

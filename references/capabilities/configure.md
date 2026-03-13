@@ -14,7 +14,7 @@
 1. 从用户消息中提取 AK 字符串
 2. 执行 cli.py configure <AK>
 3. 检查输出：success=true → 继续；success=false → 原样输出 markdown 错误信息
-4. 配置成功后当前会话自动生效，后续命令无需额外操作
+4. 配置成功后由 OpenClaw 配置注入生效（不依赖本地会话缓存）；如当前会话仍未生效，提示用户新开会话或执行 `openclaw secrets reload`
 5. 继续用户的原始请求（如搜索、铺货等）；若用户仅提供了 AK 没有其他请求，告知"配置成功，你可以让我帮你搜商品、查店铺或铺货"
 ```
 
@@ -31,7 +31,7 @@ python3 {baseDir}/cli.py configure YOUR_AK_HERE
 | 场景 | Agent 应对 |
 |------|-----------|
 | configure 输出 success=false | 原样输出 markdown 错误信息 |
-| 配置成功但后续命令仍报 AK 未配置 | 重新运行 `cli.py configure <AK>` |
+| 配置成功但后续命令仍报 AK 未配置 | 提示用户新开会话或执行 `openclaw secrets reload`，必要时再重试 configure |
 | 用户问"我的 AK 在哪" | 输出上方获取 AK 引导话术 |
 
 通用 HTTP 异常（400/401/429/500）处理见 `references/common/error-handling.md`。

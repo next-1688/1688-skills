@@ -12,7 +12,6 @@ sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(__file__), '..'
 from _output import print_output, print_error
 from capabilities.configure.service import (
     validate_ak, configure_via_gateway, configure_via_file, check_existing_config,
-    save_ak_to_session,
 )
 
 
@@ -30,7 +29,7 @@ def main():
         if len(sys.argv) < 2:
             if has_existing:
                 src = ("环境变量（已生效）" if os.environ.get("ALI_1688_AK")
-                       else "配置文件（重启Gateway后生效）")
+                       else "OpenClaw 配置（新会话/重载后生效）")
                 md = f"✅ AK 已配置: `{_mask_ak(existing_ak)}`（来源: {src}）"
             else:
                 md = "❌ 尚未配置 AK\n\n运行: `cli.py configure YOUR_AK`"
@@ -38,7 +37,6 @@ def main():
             return
 
         ak = sys.argv[1].strip()
-
         is_valid, error_msg = validate_ak(ak)
         if not is_valid:
             print_output(False, f"❌ {error_msg}", {"configured": False})
@@ -51,12 +49,10 @@ def main():
                          {"configured": False})
             return
 
-        save_ak_to_session(ak)
-
         md = (
             f"✅ AK 已保存: `{_mask_ak(ak)}`\n\n"
-            "当前会话已自动生效，后续命令无需额外操作。\n\n"
-            "⚠️ 重启 Gateway 使配置全局永久生效: `openclaw gateway restart`"
+            "后续由 OpenClaw 配置注入生效（以配置为准，不使用本地会话缓存）。\n\n"
+            "若当前会话仍提示 AK 未配置，请新开会话或执行：`openclaw secrets reload`（或 `openclaw gateway restart`）"
         )
         print_output(True, md, {"configured": True})
     except Exception as e:

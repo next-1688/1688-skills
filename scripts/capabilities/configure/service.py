@@ -6,14 +6,12 @@ import os
 from pathlib import Path
 from typing import Tuple
 
-from _auth import save_ak_to_session  # noqa: F401 — re-exported for cmd.py
-
 CONFIG_PATH = Path.home() / ".openclaw" / "openclaw.json"
 SKILL_NAME = "1688-shopkeeper"
 
 
 def validate_ak(ak: str) -> Tuple[bool, str]:
-    """校验 AK 格式，返回 (is_valid, error_msg)"""
+    """校验明文 AK 格式，返回 (is_valid, error_msg)"""
     if not ak:
         return False, "AK 不能为空"
     if len(ak) < 32:
@@ -24,7 +22,7 @@ def validate_ak(ak: str) -> Tuple[bool, str]:
     return True, ""
 
 
-def configure_via_gateway(ak: str) -> bool:
+def configure_via_gateway(api_key: str) -> bool:
     """通过 OpenClaw Gateway REST API 写入配置（安全，不破坏 JSON5 格式）"""
     try:
         import requests
@@ -38,7 +36,7 @@ def configure_via_gateway(ak: str) -> bool:
         "skills": {
             "entries": {
                 SKILL_NAME: {
-                    "env": {"ALI_1688_AK": ak}
+                    "apiKey": api_key
                 }
             }
         }
@@ -55,7 +53,7 @@ def configure_via_gateway(ak: str) -> bool:
         return False
 
 
-def configure_via_file(ak: str) -> bool:
+def configure_via_file(api_key: str) -> bool:
     """直接写入 openclaw.json（fallback）"""
     try:
         config: dict = {}
@@ -71,8 +69,9 @@ def configure_via_file(ak: str) -> bool:
         config.setdefault("skills", {})
         config["skills"].setdefault("entries", {})
         config["skills"]["entries"].setdefault(SKILL_NAME, {})
-        config["skills"]["entries"][SKILL_NAME].setdefault("env", {})
-        config["skills"]["entries"][SKILL_NAME]["env"]["ALI_1688_AK"] = ak
+        skill_entry = config["skills"]["entries"][SKILL_NAME]
+        # apiKey 作为唯一写入目标
+        skill_entry["apiKey"] = api_key
 
         CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
@@ -95,7 +94,14 @@ def check_existing_config() -> Tuple[bool, str]:
         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
             config = json.load(f)
         entries = config.get("skills", {}).get("entries", {})
-        ak = entries.get(SKILL_NAME, {}).get("env", {}).get("ALI_1688_AK", "")
-        return bool(ak), ak
+        skill_entry = entries.get(SKILL_NAME, {})
+        api_key = skill_entry.get("apiKey")
+        if isinstance(api_key, str) and api_key:
+            return True, api_key
+        # 兼容旧格式：env.ALI_1688_AK
+        legacy = skill_entry.get("env", {}).get("ALI_1688_AK", "")
+        if legacy:
+            return True, legacy
+        return False, ""
     except Exception:
         return False, ""
