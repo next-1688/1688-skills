@@ -32,8 +32,16 @@ SKILL_VERSION = "1.0.0"
 SEARCH_LIMIT = 20
 PUBLISH_LIMIT = 20
 
-# ── 数据目录（与 skill 代码解耦）──────────────────────────────────────────────
+# ── OpenClaw 配置文件路径（唯一权威来源）──────────────────────────────────────
 import os
+from pathlib import Path
+
+# 优先读取 OPENCLAW_CONFIG_DIR 环境变量，默认 ~/.openclaw
+OPENCLAW_CONFIG_PATH: Path = Path(
+    os.environ.get("OPENCLAW_CONFIG_DIR", Path.home() / ".openclaw")
+) / "openclaw.json"
+
+# ── 数据目录（与 skill 代码解耦）──────────────────────────────────────────────
 
 # 优先级：
 # 1) 显式环境变量 OPENCLAW_WORKSPACE_DIR（推荐）

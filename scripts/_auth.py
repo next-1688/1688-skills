@@ -9,10 +9,11 @@ import hmac
 import base64
 import time
 import uuid
+import json
 import os
 from typing import Optional, Dict, Tuple
 from urllib.parse import urlparse, parse_qs, quote
-from _const import SKILL_VERSION
+from _const import SKILL_VERSION, OPENCLAW_CONFIG_PATH
 
 
 def extract_ak_keys(raw_input: str) -> Tuple[Optional[str], Optional[str]]:
@@ -43,9 +44,24 @@ def extract_ak_keys(raw_input: str) -> Tuple[Optional[str], Optional[str]]:
     return access_key_id, access_key_secret
 
 
+def _get_ak_raw_from_config() -> Optional[str]:
+    """从 OPENCLAW_CONFIG_PATH 读取 AK（Gateway 未重启时的 fallback）"""
+    if not OPENCLAW_CONFIG_PATH.exists():
+        return None
+    try:
+        with open(OPENCLAW_CONFIG_PATH, "r", encoding="utf-8") as f:
+            config = json.load(f)
+        entries = config.get("skills", {}).get("entries", {})
+        skill = entries.get("1688-shopkeeper", {})
+        ak = skill.get("apiKey") or skill.get("env", {}).get("ALI_1688_AK", "")
+        return ak if ak else None
+    except Exception:
+        return None
+
+
 def get_ak_from_env() -> Tuple[Optional[str], Optional[str]]:
-    """仅从运行时环境变量读取 AK（由 OpenClaw skills.entries 注入）"""
-    raw_input = os.environ.get("ALI_1688_AK")
+    """读取 AK：优先环境变量（OpenClaw 注入），其次配置文件（Gateway 未重启时 fallback）"""
+    raw_input = os.environ.get("ALI_1688_AK") or _get_ak_raw_from_config()
     if not raw_input:
         return None, None
     return extract_ak_keys(raw_input)

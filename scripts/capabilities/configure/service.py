@@ -3,10 +3,13 @@
 
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Tuple
 
-CONFIG_PATH = Path.home() / ".openclaw" / "openclaw.json"
+sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(__file__), '..', '..')))
+from _const import OPENCLAW_CONFIG_PATH as CONFIG_PATH
+
 SKILL_NAME = "1688-shopkeeper"
 
 
