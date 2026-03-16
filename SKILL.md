@@ -1,9 +1,10 @@
 ---
 name: 1688-shopkeeper
 description: |
-  1688选品铺货专家。用于：(1) 在1688搜索商品/选品找货源 (2) 查询已绑定的下游店铺
-  (3) 将商品铺货到抖音/拼多多/小红书/淘宝等平台 (4) 配置1688 AK密钥。
-  触发词：帮我找商品、在1688搜、选品、铺货、上架、查店铺、配置AK、1688找货。
+  1688选品铺货 + 商机趋势专家。用于：(1) 在1688搜索商品/选品找货源 (2) 查询已绑定的下游店铺
+  (3) 将商品铺货到抖音/拼多多/小红书/淘宝等平台 (4) 配置1688 AK密钥 (5) 查看即时商机热榜
+  (6) 查看类目/行业趋势与价格分布。
+  触发词：帮我找商品、在1688搜、选品、铺货、上架、查店铺、配置AK、商机、热榜、排行榜、趋势、价格分布、1688找货。
 metadata: {"openclaw": {"emoji": "🛒", "requires": {"bins": ["python3"]}, "primaryEnv": "ALI_1688_AK"}}
 ---
 
@@ -18,6 +19,8 @@ metadata: {"openclaw": {"emoji": "🛒", "requires": {"bins": ["python3"]}, "pri
 | `search` | 搜商品 | `cli.py search --query "连衣裙" --channel douyin` |
 | `shops` | 查绑定店铺 | `cli.py shops` |
 | `publish` | 铺货 | `cli.py publish --shop-code CODE --data-id ID` |
+| `opportunities` | 商机热榜 | `cli.py opportunities` |
+| `trend` | 趋势洞察 | `cli.py trend --query "大码女装"` |
 | `configure` | 配置 AK | `cli.py configure YOUR_AK` |
 | `check` | 检查配置状态 | `cli.py check` |
 
@@ -31,11 +34,15 @@ Agent 根据用户意图**直接执行对应命令**，无需每次先执行 `ch
 
 **选品铺货典型路径**：`search` → 用户筛选 → `shops`（确认目标店铺） → `publish`
 
+**商机/趋势使用指引**：
+- `opportunities`：用户想看“此刻/近1小时/热榜/趋势商机”。
+- `trend`：用户询问某宽泛类目/行业的周期趋势、价格分布、热品概况；关键词过长或过细时先按用户原词尝试，若空结果再提示用户换更宽泛/拆分词后重试。
+
 ## 安全声明
 
 | 风险级别 | 命令 | Agent 行为 |
 |---------|------|-----------|
-| **只读** | search, shops, check | 直接执行 |
+| **只读** | search, shops, check, opportunities, trend | 直接执行 |
 | **配置** | configure | 提示影响范围后执行 |
 | **写入** | publish | **必须先 dry-run 预检查；仅当写入目标不唯一时追问，目标唯一则直接执行** |
 
@@ -67,6 +74,8 @@ Agent 根据用户意图**直接执行对应命令**，无需每次先执行 `ch
 - 首次执行 `shops` 前：先完整阅读 `references/capabilities/shops.md`
 - 首次执行 `publish` 前：先完整阅读 `references/capabilities/publish.md`
 - 首次执行 `configure` 前：先完整阅读 `references/capabilities/configure.md`
+- 首次执行 `opportunities` 前：先完整阅读 `references/capabilities/opportunities.md`
+- 首次执行 `trend` 前：先完整阅读 `references/capabilities/trend.md`
 - 同一会话内后续重复调用同一能力可复用已加载知识；仅在规则冲突或文档更新时重读。
 
 ## AK 引导话术
@@ -91,4 +100,3 @@ Agent 根据用户意图**直接执行对应命令**，无需每次先执行 `ch
 | 退货、仅退款、运费险、售后 | `references/faq/after-sales.md` |
 | 新店破零、服务分、推广 | `references/faq/new-store.md` |
 | 素材审核、白底图、标题优化 | `references/faq/content-compliance.md` |
-
