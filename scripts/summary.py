@@ -15,6 +15,11 @@ from typing import Any, Dict, List
 
 from _const import DATA_DIR, PUBLISH_DATA_DIR
 
+SUCCESS_RATE_WARNING_THRESHOLD = 0.8
+RECOMMENDED_AVG_MIN = 5
+FAIL_REASON_CONCENTRATION_THRESHOLD = 0.5
+INFERRED_UNKNOWN_REASON = "未知原因（未返回具体失败明细）"
+
 
 def _safe_read_json(filepath: Path) -> Dict[str, Any]:
     try:
@@ -43,6 +48,35 @@ def _is_today_from_timestamp(timestamp_text: str, today: datetime) -> bool:
         return ts.date() == today.date()
     except Exception:
         return False
+
+
+def _evaluate_status(
+    search_count: int,
+    recommended_avg: float,
+    submitted_total: int,
+    success_rate_value: Any,
+) -> Dict[str, Any]:
+    status = "稳健"
+    reasons: List[str] = []
+
+    if search_count == 0 and submitted_total == 0:
+        return {"status": "待启动", "reasons": ["今日尚无搜索与正式铺货记录"]}
+
+    if submitted_total > 0 and success_rate_value is not None and success_rate_value < SUCCESS_RATE_WARNING_THRESHOLD:
+        status = "预警"
+        reasons.append("正式铺货成功率偏低")
+    elif submitted_total == 0:
+        status = "观察"
+        reasons.append("今日仅有选品记录，尚未正式铺货")
+
+    if search_count > 0 and recommended_avg < RECOMMENDED_AVG_MIN and status != "预警":
+        status = "观察"
+        reasons.append("平均每次推荐数量偏少")
+
+    if not reasons and status == "稳健":
+        reasons.append("选品供给与铺货执行表现稳定")
+
+    return {"status": status, "reasons": reasons}
 
 
 def build_daily_summary() -> Dict[str, Any]:
@@ -85,6 +119,7 @@ def build_daily_summary() -> Dict[str, Any]:
     success_total = 0
     fail_total = 0
     fail_reason_counter: Counter = Counter()
+    inferred_unknown_reason_count = 0
 
     if publish_dir.exists():
         for filepath in publish_dir.glob("publish_*.json"):
@@ -114,12 +149,19 @@ def build_daily_summary() -> Dict[str, Any]:
             fail_total += fail
 
             failed_items = payload.get("failed_items", [])
+            resolved_reason_count = 0
             if isinstance(failed_items, list):
                 for item in failed_items:
                     if not isinstance(item, dict):
                         continue
                     reason = str(item.get("error") or "未知错误").strip() or "未知错误"
                     fail_reason_counter[reason] += 1
+                    resolved_reason_count += 1
+
+            unknown_count = max(fail - resolved_reason_count, 0)
+            if unknown_count > 0:
+                inferred_unknown_reason_count += unknown_count
+                fail_reason_counter[INFERRED_UNKNOWN_REASON] += unknown_count
 
     success_rate_value = (success_total / submitted_total) if submitted_total else None
     success_rate_text = f"{success_rate_value * 100:.1f}%" if success_rate_value is not None else "-"
@@ -128,12 +170,19 @@ def build_daily_summary() -> Dict[str, Any]:
     for reason, count in fail_reason_counter.most_common(3):
         fail_reason_top3.append({"reason": reason, "count": count})
 
+    fail_reason_covered_total = sum(fail_reason_counter.values())
+    fail_reason_data_complete = (fail_total == 0) or (inferred_unknown_reason_count == 0)
+    status_info = _evaluate_status(search_count, recommended_avg, submitted_total, success_rate_value)
+    summary_status = status_info["status"]
+    summary_reasons = status_info["reasons"]
+
     markdown_lines = [
         "## 运营视角小结报表",
         "",
         f"**日期**: {today_text}",
         "",
-        "### 今日核心数据",
+        "### 经营总览",
+        f"- 今日状态：**{summary_status}**（{'；'.join(summary_reasons)}）",
         f"- 搜索次数：**{search_count}**",
         f"- 推荐商品总数：**{recommended_total}**",
         f"- 平均每次推荐：**{recommended_avg}**",
@@ -144,27 +193,47 @@ def build_daily_summary() -> Dict[str, Any]:
     if publish_dry_run_total:
         markdown_lines.append(f"- 预检查次数（dry-run）：**{publish_dry_run_total}**")
 
-    markdown_lines.extend(["", "### 失败原因 Top3"])
+    markdown_lines.extend(["", "### 问题诊断", "- 失败原因 Top3："])
     if fail_reason_top3:
         for index, item in enumerate(fail_reason_top3, 1):
-            markdown_lines.append(f"{index}. {item['reason']}（{item['count']} 次）")
+            markdown_lines.append(f"  {index}. {item['reason']}（{item['count']} 次）")
     else:
-        markdown_lines.append("- 今日暂无失败原因记录")
+        markdown_lines.append("  - 今日暂无失败原因记录")
 
-    markdown_lines.extend(["", "### 运营建议"])
+    if fail_total == 0:
+        markdown_lines.append("- 数据完整性：今日无铺货失败，失败原因统计不适用。")
+    elif fail_reason_data_complete:
+        markdown_lines.append("- 数据完整性：失败原因记录完整。")
+    else:
+        markdown_lines.append(
+            f"- 数据完整性：有 **{inferred_unknown_reason_count}** 次失败未返回具体明细，已归并为“未知原因”。"
+        )
+
+    markdown_lines.extend(["", "### 下一步建议"])
     if search_count == 0:
         markdown_lines.append("- 今天还没有搜索记录，先执行一次 search 建立选品样本。")
-    elif recommended_avg < 5:
+    elif recommended_avg < RECOMMENDED_AVG_MIN:
         markdown_lines.append("- 每次推荐数量偏少，可适当放宽关键词描述并减少限制条件。")
     else:
         markdown_lines.append("- 选品供给量正常，建议优先复盘高转化类目并持续迭代关键词。")
 
     if submitted_total == 0:
         markdown_lines.append("- 今天还未执行正式铺货，可先 dry-run 预检查后再正式提交。")
-    elif success_rate_value is not None and success_rate_value < 0.8:
+    elif success_rate_value is not None and success_rate_value < SUCCESS_RATE_WARNING_THRESHOLD:
         markdown_lines.append("- 铺货成功率偏低，建议优先处理 Top 失败原因后再批量铺货。")
     else:
         markdown_lines.append("- 铺货执行稳定，可扩大同类商品测试规模。")
+
+    if fail_reason_top3 and fail_total > 0:
+        top_reason = fail_reason_top3[0]
+        top_reason_share = top_reason["count"] / fail_total
+        if top_reason_share >= FAIL_REASON_CONCENTRATION_THRESHOLD:
+            markdown_lines.append(
+                f"- 失败主要集中在「{top_reason['reason']}」(占比 {top_reason_share * 100:.1f}%)，建议先专项修复后再放量。"
+            )
+
+    if inferred_unknown_reason_count > 0:
+        markdown_lines.append("- 建议补充失败明细记录，便于后续精细化定位问题并降低重复失败。")
 
     return {
         "success": True,
@@ -181,7 +250,12 @@ def build_daily_summary() -> Dict[str, Any]:
             "publish_fail_total": fail_total,
             "publish_success_rate": success_rate_value,
             "publish_success_rate_display": success_rate_text,
+            "summary_status": summary_status,
+            "summary_status_reasons": summary_reasons,
             "fail_reason_top3": fail_reason_top3,
+            "fail_reason_covered_total": fail_reason_covered_total,
+            "fail_reason_unknown_total": inferred_unknown_reason_count,
+            "fail_reason_data_complete": fail_reason_data_complete,
         },
     }
 
