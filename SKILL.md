@@ -26,7 +26,7 @@ metadata: {"openclaw": {"emoji": "🛒", "requires": {"bins": ["python3"]}, "pri
 | `check` | 检查配置状态 | `cli.py check` |
 
 所有命令输出 JSON：`{"success": bool, "markdown": str, "data": {...}}`
-**默认直接输出 `markdown` 字段。例外：`shop_daily` 必须先执行命令，再基于 `data.analysis_payload` 按 `references/capabilities/shop_daily.md` 中的提示词生成最终经营日报；正常模式下 `markdown` 是数据快照，回退模式下 `markdown` 可直接作为选品策略日报。**
+**展示时直接输出 `markdown` 字段，Agent 分析追加在后面，不得混入其中。**
 
 ## 使用流程
 
