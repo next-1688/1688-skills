@@ -51,8 +51,7 @@ def main():
             "success": result["success"],
             "origin_count": result["origin_count"],
             "submitted_count": submitted_count,
-            "success_count": result["result"].published_count,
-            "fail_count": result["result"].fail_count,
+            "error_code": result["result"].error_code,
             "dry_run": args.dry_run,
             "risk_level": "write",
         }

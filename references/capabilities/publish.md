@@ -43,13 +43,12 @@ python3 {baseDir}/cli.py publish --shop-code "260391138" --data-id "20260305_143
 ```json
 {
   "success": true,
-  "markdown": "## 铺货结果\n\n**目标店铺**: 我的抖店\n\n✅ **成功铺货 12 个商品**\n...",
+  "markdown": "## 铺货结果\n\n**目标店铺**: 我的抖店\n\n✅ 共 20 个商品，已全部提交成功！\n...",
   "data": {
     "success": true,
     "origin_count": 28,
     "submitted_count": 20,
-    "success_count": 12,
-    "fail_count": 8,
+    "error_code": "",
     "dry_run": false,
     "risk_level": "write"
   }
@@ -60,8 +59,7 @@ python3 {baseDir}/cli.py publish --shop-code "260391138" --data-id "20260305_143
 |-----------|------|
 | `origin_count` | 来源商品总数（data_id 或 item-ids 解析后） |
 | `submitted_count` | 实际提交数（最多 20，受接口限制） |
-| `success_count` | 铺货成功数 |
-| `fail_count` | 铺货失败数 |
+| `error_code` | 铺货错误码（空字符串表示全部成功，见下方错误码表） |
 | `dry_run` | 是否为预检查模式 |
 | `risk_level` | 固定为 `"write"`，标识这是写入级操作 |
 | `confirm_prompt` | dry-run 模式下可出现；仅在目标不唯一时用于追问用户做歧义消解 |
@@ -76,8 +74,7 @@ python3 {baseDir}/cli.py publish --shop-code "260391138" --data-id "20260305_143
     "success": true,
     "origin_count": 28,
     "submitted_count": 20,
-    "success_count": 0,
-    "fail_count": 0,
+    "error_code": "",
     "dry_run": true,
     "risk_level": "write",
     "confirm_prompt": "确认铺货 20 个商品到目标店铺？去掉 --dry-run 执行正式铺货。"
@@ -119,11 +116,14 @@ python3 {baseDir}/cli.py publish --shop-code "260391138" --data-id "20260305_143
 
 ## 结果处理与下一步引导
 
-| 结果 | Agent 应对 |
+| 结果（error_code） | Agent 应对 |
 |------|-----------|
-| 全部成功 | 恭喜用户，提示"登录对应平台后台查看已发布商品" |
-| 部分成功（有 fail_count） | 说明成功/失败数，建议"稍后重试失败的商品，或检查商品信息是否完整" |
-| 全部失败 | 展示失败原因（markdown 中有），按错误码引导（见下方错误处理） |
+| 全部成功（`""`） | 恭喜用户，提示"登录对应平台后台查看已发布商品" |
+| 部分成功（`"210"`） | 告知有部分提交失败，建议稍后重试或检查商品信息 |
+| 授权失效（`"511"`） | 提示重新授权 |
+| 铺货设置未完成（`"512"`） | 提示完成铺货设置 |
+| 三方工具错误（`"500"`） | 提示稍后重试 |
+| 全部失败（其他） | 展示失败原因（markdown 中有），按错误码引导（见下方错误处理） |
 | dry-run 预检查 | 展示预检结果；目标唯一则直接正式执行，目标不唯一则追问一次后执行 |
 | 店铺不存在 | 提示运行 `shops` 重新获取正确的店铺代码 |
 | 店铺授权过期 | 提示在 1688 AI版 APP 中重新授权 |
@@ -145,3 +145,7 @@ python3 {baseDir}/cli.py publish --shop-code "260391138" --data-id "20260305_143
 |------|------|-----------|
 | data_id 找不到 | `"未找到 data_id=... 对应的选品结果"` | 提示用户重新搜索获取新的 data_id |
 | 商品 ID 为空 | `"没有可用的商品ID"` | 检查 --item-ids 或 --data-id 是否正确 |
+| 部分提交成功 | `error_code: "210"` | 告知有部分提交失败，建议稍后重试或检查商品信息 |
+| 授权失效 | `error_code: "511"` | 提示重新授权 |
+| 铺货设置未完成 | `error_code: "512"` | 提示完成铺货设置 |
+| 三方工具服务错误 | `error_code: "500"` | 提示稍后重试 |
