@@ -1,18 +1,27 @@
 #!/usr/bin/env python3
 """
-1688-shopkeeper 统一入口
+1688-shopkeeper —— 1688 AI 店长 CLI 统一入口
+
+在 1688 AI 版 APP 中配置 AK 并绑定下游店铺后，可通过本 CLI：选品搜货、查商品详情、
+查看已绑定店铺（抖店/拼多多/小红书/淘宝）、铺货上架，以及商机热榜、类目/行业趋势、
+店铺经营日报等。子命令位于 scripts/capabilities/<能力名>/cmd.py，启动时自动扫描注册。
 
 Usage:
     python3 cli.py <command> [options]
 
-Commands:
-    search      文字搜商品      python3 cli.py search --query "连衣裙" [--channel douyin]
-    shops       查绑定店铺      python3 cli.py shops
-    publish     铺货           python3 cli.py publish --shop-code XXX (--data-id YYY | --item-ids a,b)
-    configure   配置AK         python3 cli.py configure YOUR_AK
-    check       检查配置状态    python3 cli.py check
+Commands（更多参数见项目根目录 SKILL.md）:
+    search        搜商品          python3 cli.py search --query "..." [--channel douyin]
+    prod_detail   商品详情        python3 cli.py prod_detail --item-ids "id1,id2"
+    shops         查绑定店铺      python3 cli.py shops
+    publish       铺货到下游      python3 cli.py publish --shop-code XXX (--data-id Y | --item-ids a,b)
+    opportunities 商机热榜        python3 cli.py opportunities
+    trend         趋势洞察        python3 cli.py trend --query "大码女装"
+    shop_daily    店铺经营日报    python3 cli.py shop_daily
+    configure     配置 AK         python3 cli.py configure YOUR_AK
+    check         检查配置状态    python3 cli.py check
 
 所有命令输出 JSON: {"success": bool, "markdown": str, "data": {...}}
+面向用户展示时优先使用 markdown；Agent 追加分析时不要写入 markdown 正文。
 """
 
 import json
